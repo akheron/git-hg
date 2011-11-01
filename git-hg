@@ -8,8 +8,13 @@ set -e
 : ${HG_REMOTE:=hg}
 
 check_hg() {
-    which hg >/dev/null 2>&1 || {
-        echo "error: hg not found" >&2
+    which hg >/dev/null 2>&1 || { echo "error: hg not found" >&2; exit 1; }
+    python -c 'import hggit' 2>/dev/null || {
+        echo "error: hg-git not installed"
+        exit 1
+    }
+    [ -f $HOME/.hgrc ] && grep -q 'hggit' $HOME/.hgrc || {
+        echo "error: hg-git not enabled in $HOME/.hgrc, use git hg configure"
         exit 1
     }
 }
@@ -52,6 +57,16 @@ git2hg() {
 }
 
 ### COMMANDS ###
+
+# Writes the required configuration to ~/.hgrc
+hg_configure() {
+    [ -f $HOME/.hgrc ] && { echo "$HOME/.hgrc already exists!"; exit 1; }
+    cat >$HOME/.hgrc <<EOF
+[extensions]
+hggit =
+progress =
+EOF
+}
 
 hg_clone() {
     check_hg
@@ -99,6 +114,7 @@ shift
 
 case "$cmd" in
     help|-h|--help)  help "$@" ;;
+    configure)       hg_configure "$@" ;;
     clone)           hg_clone "$@" ;;
     fetch)           hg_fetch "$@" ;;
     outgoing)        hg_outgoing "$@" ;;
