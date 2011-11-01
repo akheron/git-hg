@@ -1,5 +1,7 @@
 #!/bin/sh
 
+set -e
+
 : ${GIT_DIR:=.git}
 : ${HG_DIR:=${GIT_DIR}/hg}
 : ${HG_GIT_DIR:=${HG_DIR}/.hg/git}
@@ -12,7 +14,7 @@ check_hg() {
     }
 }
 
-run_hg() {
+hg_() {
     hg -R "$HG_DIR" "$@"
 }
 
@@ -23,50 +25,57 @@ map_branch() {
 
 # Create Hg bookmarks for Hg branches
 update_bookmarks() {
-    run_hg branches | while read branch rev rest; do
+    hg_ branches | while read branch rev rest; do
         target=$(map_branch $branch)
         rev=$(echo $rev | sed -r "s/([0-9]+):.*/\\1/")
-        run_hg bookmark -f -r $rev $target
+        hg_ bookmark -f -r $rev $target
     done
 }
 
 # Delete all Hg bookmarks
 delete_bookmarks() {
-    run_hg bookmarks \
+    hg_ bookmarks \
         | sed -r 's/[[:space:]]+(.+?)[[:space:]]+.*/\\1/' \
-        | while read bookmark; do run_hg bookmark -d $bookmark; done
+        | while read bookmark; do hg_ bookmark -d $bookmark; done
 }
 
 # Convert Hg changesets to Git commits
 hg2git() {
     update_bookmarks
-    run_hg gexport
+    hg_ gexport
 }
 
 # Convert Git commits to Hg changesets
 git2hg() {
     delete_bookmarks
-    run_hg gimport
+    hg_ gimport
 }
+
+### COMMANDS ###
 
 hg_clone() {
     check_hg
     :
 }
 
+# Fetch changes from remote hg repository
 hg_fetch() {
     check_hg
-    run_hg pull && hg2git && git fetch $HG_REMOTE
+    hg_ pull && hg2git && git fetch $HG_REMOTE
 }
 
+# Export git changes and show outgoing changes
 hg_outgoing() {
     check_hg
-    git2hg && run_hg outgoing
+    git2hg
+    hg_ outgoing
 }
 
+# Export git changes and push to remote hg repository
 hg_push() {
     check_hg
-    git2hg && run_hg push
+    git2hg
+    hg_ push
 }
 
 usage() {
@@ -81,6 +90,7 @@ help() {
     echo "Usage: hg git COMMAND [ARGS...]"
     echo ""
     echo "(TODO)"
+    exit
 }
 
 cmd=$1
