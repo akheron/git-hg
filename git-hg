@@ -1,0 +1,97 @@
+#!/bin/sh
+
+: ${GIT_DIR:=.git}
+: ${HG_DIR:=${GIT_DIR}/hg}
+: ${HG_GIT_DIR:=${HG_DIR}/.hg/git}
+: ${HG_REMOTE:=hg}
+
+check_hg() {
+    which hg >/dev/null 2>&1 || {
+        echo "error: hg not found" >&2
+        exit 1
+    }
+}
+
+run_hg() {
+    hg -R "$HG_DIR" "$@"
+}
+
+# Map default in Hg to master in Git
+map_branch() {
+    [ "$1" = "default" ] && echo "master" || echo "$1"
+}
+
+# Create Hg bookmarks for Hg branches
+update_bookmarks() {
+    run_hg branches | while read branch rev rest; do
+        target=$(map_branch $branch)
+        rev=$(echo $rev | sed -r "s/([0-9]+):.*/\\1/")
+        run_hg bookmark -f -r $rev $target
+    done
+}
+
+# Delete all Hg bookmarks
+delete_bookmarks() {
+    run_hg bookmarks \
+        | sed -r 's/[[:space:]]+(.+?)[[:space:]]+.*/\\1/' \
+        | while read bookmark; do run_hg bookmark -d $bookmark; done
+}
+
+# Convert Hg changesets to Git commits
+hg2git() {
+    update_bookmarks
+    run_hg gexport
+}
+
+# Convert Git commits to Hg changesets
+git2hg() {
+    delete_bookmarks
+    run_hg gimport
+}
+
+hg_clone() {
+    check_hg
+    :
+}
+
+hg_fetch() {
+    check_hg
+    run_hg pull && hg2git && git fetch $HG_REMOTE
+}
+
+hg_outgoing() {
+    check_hg
+    git2hg && run_hg outgoing
+}
+
+hg_push() {
+    check_hg
+    git2hg && run_hg push
+}
+
+usage() {
+    echo "Usage: hg git COMMAND [ARGS...]" >&2
+    echo "" >&2
+    echo "Use \"hg git help\" to get more help" >&2
+    echo "" >&2
+    exit 2
+}
+
+help() {
+    echo "Usage: hg git COMMAND [ARGS...]"
+    echo ""
+    echo "(TODO)"
+}
+
+cmd=$1
+[ -z "$cmd" ] && usage
+shift
+
+case "$cmd" in
+    help|-h|--help)  help "$@" ;;
+    clone)           hg_clone "$@" ;;
+    fetch)           hg_fetch "$@" ;;
+    outgoing)        hg_outgoing "$@" ;;
+    push)            hg_push "$@" ;;
+    *)               usage ;;
+esac
