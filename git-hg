@@ -68,9 +68,58 @@ progress =
 EOF
 }
 
+# Clones a mercurial repository, optionally cloning a git mirror for
+# less time-consuming setup phase
 hg_clone() {
+    local hgremote gitmirror mapfile target
     check_hg
-    :
+
+    [ $# -eq 0 ] && help clone
+    hgremote=$1
+    target=${1##*/}
+    [ $# -eq 2 ] && target=$2
+    [ $# -eq 3 ] && { gitmirror=$2; mapfile=$3; }
+    [ $# -eq 4 ] && { gitmirror=$2; mapfile=$3; target=$4; }
+    [ $# -gt 4 ] && help clone
+    [ -n "$gitmirror" -a -z "$mapfile" ] && help clone
+
+    [ -e "$target" ] && { echo "$target already exists" >&2; exit 1; }
+
+    mkdir $target
+    cd ${target}
+
+    echo "Cloning the mercurial repository..."
+    hg clone -U "$1" hg
+
+    if [ -n "$gitmirror" ]; then
+        echo "Cloning the git mirror..."
+        git clone --bare "$2" hg/.hg/git
+
+        echo "Downloading git-mapfile..."
+        (
+            cd hg/.hg
+            wget "$3"
+            bunzip2 git-mapfile.bz2 2>/dev/null || gunzip git-mapfile.gz
+        )
+    fi
+
+    echo "Creating the working git repository..."
+    git init
+    mv hg .git/hg
+
+    echo "Converting git commits to hg changesets..."
+    [ -z "$gitmirror" ] \
+        && echo "(This may take a LONG time)" \
+        || echo "(This may take some time)"
+    hg2git
+
+    echo "Populating the working git repository..."
+    git remote add $HG_REMOTE .git/hg/.hg/git
+    git fetch $HG_REMOTE
+    git branch --set-upstream master hg/master
+    git reset --hard hg/master
+
+    echo "Done"
 }
 
 # Fetch changes from remote hg repository
