@@ -39,8 +39,9 @@ update_bookmarks() {
 
 # Delete all Hg bookmarks
 delete_bookmarks() {
+    hg_ bookmarks | grep -q 'no bookmarks' && return
     hg_ bookmarks \
-        | sed -r 's/[[:space:]]+(.+?)[[:space:]]+.*/\\1/' \
+        | sed -r 's/[[:space:]]+(.+?)[[:space:]]+.*/\1/' \
         | while read bookmark; do hg_ bookmark -d $bookmark; done
 }
 
@@ -52,8 +53,8 @@ hg2git() {
 
 # Convert Git commits to Hg changesets
 git2hg() {
-    delete_bookmarks
     hg_ gimport
+    delete_bookmarks
 }
 
 ### COMMANDS ###
