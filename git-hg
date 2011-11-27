@@ -143,6 +143,13 @@ hg_push() {
     hg_ push
 }
 
+# Push to remote hg repository without exporting first (useful after
+# outgoing, for example)
+hg_pushonly() {
+    check_hg
+    hg_ push
+}
+
 usage() {
     echo "Usage: hg git COMMAND [ARGS...]" >&2
     echo "" >&2
@@ -169,5 +176,6 @@ case "$cmd" in
     fetch)           hg_fetch "$@" ;;
     outgoing)        hg_outgoing "$@" ;;
     push)            hg_push "$@" ;;
+    pushonly)        hg_pushonly "$@" ;;
     *)               usage ;;
 esac
