@@ -1,0 +1,15 @@
+#!/bin/sh
+#
+# Add the branch name as hg-git metadata to commit messages automatically.
+# This is useful if the upstream Mercurial repository uses named branches.
+#
+# Copy this file to .git/hooks/commit-msg and make it executable.
+
+branch=$(git symbolic-ref HEAD 2>/dev/null)
+branch=${branch#refs/heads/}
+
+if [ -n "$branch" -a "$branch" != "master" ]; then
+    if ! grep -q -e "--HG--" $1; then
+        printf '\n--HG--\nbranch : %s' "$branch" >> $1
+    fi
+fi
