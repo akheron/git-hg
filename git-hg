@@ -8,7 +8,7 @@ set -e
 : ${HG_REMOTE:=hg}
 
 check_hg() {
-    which hg >/dev/null 2>&1 || { echo "error: hg not found" >&2; exit 1; }
+    command -v hg >/dev/null || { echo "error: hg not found" >&2; exit 1; }
     python -c 'import hggit' 2>/dev/null || {
         echo "error: hg-git not installed"
         exit 1
