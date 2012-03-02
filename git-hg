@@ -2,13 +2,15 @@
 
 set -e
 
+: ${GIT:=git}
+: ${HG:=hg}
 : ${GIT_DIR:=.git}
 : ${HG_DIR:=${GIT_DIR}/hg}
 : ${HG_GIT_DIR:=${HG_DIR}/.hg/git}
 : ${HG_REMOTE:=hg}
 
 check_hg() {
-    command -v hg >/dev/null || { echo "error: hg not found" >&2; exit 1; }
+    command -v $HG >/dev/null || { echo "error: hg not found" >&2; exit 1; }
     python -c 'import hggit' 2>/dev/null || {
         echo "error: hg-git not installed"
         exit 1
@@ -20,7 +22,7 @@ check_hg() {
 }
 
 hg_() {
-    hg -R "$HG_DIR" "$@"
+    $HG -R "$HG_DIR" "$@"
 }
 
 # Map default in Hg to master in Git
@@ -90,11 +92,11 @@ hg_clone() {
     cd ${target}
 
     echo "Cloning the mercurial repository..."
-    hg clone -U "$1" hg
+    $HG clone -U "$1" hg
 
     if [ -n "$gitmirror" ]; then
         echo "Cloning the git mirror..."
-        git clone --bare "$2" hg/.hg/git
+        $GIT clone --bare "$2" hg/.hg/git
 
         echo "Downloading git-mapfile..."
         (
@@ -105,7 +107,7 @@ hg_clone() {
     fi
 
     echo "Creating the working git repository..."
-    git init
+    $GIT init
     mv hg .git/hg
 
     echo "Converting git commits to hg changesets..."
@@ -115,10 +117,10 @@ hg_clone() {
     hg2git
 
     echo "Populating the working git repository..."
-    git remote add $HG_REMOTE .git/hg/.hg/git
-    git fetch $HG_REMOTE
-    git branch --set-upstream master hg/master
-    git reset --hard hg/master
+    $GIT remote add $HG_REMOTE .git/hg/.hg/git
+    $GIT fetch $HG_REMOTE
+    $GIT branch --set-upstream master hg/master
+    $GIT reset --hard hg/master
 
     echo "Done"
 }
@@ -126,7 +128,7 @@ hg_clone() {
 # Fetch changes from remote hg repository
 hg_fetch() {
     check_hg
-    hg_ pull && hg2git && git fetch $HG_REMOTE
+    hg_ pull && hg2git && $GIT fetch $HG_REMOTE
 }
 
 # Export git changes and show outgoing changes
