@@ -153,15 +153,15 @@ hg_pushonly() {
 }
 
 usage() {
-    echo "Usage: hg git COMMAND [ARGS...]" >&2
+    echo "Usage: git hg COMMAND [ARGS...]" >&2
     echo "" >&2
-    echo "Use \"hg git help\" to get more help" >&2
+    echo "Use \"git hg help\" to get more help" >&2
     echo "" >&2
     exit 2
 }
 
 help() {
-    echo "Usage: hg git COMMAND [ARGS...]"
+    echo "Usage: git hg COMMAND [ARGS...]"
     echo ""
     echo "(TODO)"
     exit
