@@ -6,6 +6,7 @@ set -e
 : ${HG:=hg}
 : ${GIT_DIR:=.git}
 : ${HG_DIR:=${GIT_DIR}/hg}
+: ${HG_GIT_MAPFILE:=${HG_DIR}/.hg/git-mapfile}
 : ${HG_GIT_DIR:=${HG_DIR}/.hg/git}
 : ${HG_REMOTE:=hg}
 
@@ -57,6 +58,14 @@ hg2git() {
 git2hg() {
     hg_ gimport
     delete_bookmarks
+}
+
+map_git_commit() {
+    grep "^$1" $HG_GIT_MAPFILE | cut -d' ' -f2
+}
+
+map_hg_changeset() {
+    grep " $1" $HG_GIT_MAPFILE | cut -d' ' -f1
 }
 
 ### COMMANDS ###
@@ -152,6 +161,14 @@ hg_pushonly() {
     hg_ push
 }
 
+hg_map_commit() {
+    map_git_commit $(git rev-parse "$1")
+}
+
+hg_map_changeset() {
+    map_hg_changeset "$1"
+}
+
 usage() {
     echo "Usage: git hg COMMAND [ARGS...]" >&2
     echo "" >&2
@@ -179,5 +196,7 @@ case "$cmd" in
     outgoing)        hg_outgoing "$@" ;;
     push)            hg_push "$@" ;;
     pushonly)        hg_pushonly "$@" ;;
+    map-commit)      hg_map_commit "$@" ;;
+    map-changeset)   hg_map_changeset "$@" ;;
     *)               usage ;;
 esac
