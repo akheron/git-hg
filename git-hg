@@ -169,6 +169,16 @@ hg_map_changeset() {
     map_hg_changeset "$1"
 }
 
+hg_convert_diff() {
+    local rev commit changeset
+    [ -n "$1" ] && rev=$2 || rev=HEAD
+    commit=$(git rev-parse "$rev")
+    changeset=$(map_git_commit $commit | cut -b -12)
+    sed -r \
+        -e "s:^diff --git a/(.+?) b/.+\$:diff -r $changeset \\1:" \
+        -e '/^index [0-9a-f]+\.\.[0-9a-f]+ [0-9]+$/d'
+}
+
 usage() {
     echo "Usage: git hg COMMAND [ARGS...]" >&2
     echo "" >&2
@@ -198,5 +208,6 @@ case "$cmd" in
     pushonly)        hg_pushonly "$@" ;;
     map-commit)      hg_map_commit "$@" ;;
     map-changeset)   hg_map_changeset "$@" ;;
+    convert-diff)    hg_convert_diff "$@" ;;
     *)               usage ;;
 esac
