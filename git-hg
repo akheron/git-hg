@@ -168,6 +168,49 @@ hg_pushonly() {
     hg_ push
 }
 
+# Strip the given commits and their descendants from the hg repo and
+# also remove them from the git-mapfile.
+hg_strip() {
+    local commit revset changeset changesets answer
+    check_hg
+
+    # Map each commit to changeset and build a revset of all
+    # the changesets
+    for commit in "$@"; do
+        changeset=$(map_git_commit $(git rev-parse "$commit"))
+        [ -z "$changeset" ] && {
+            echo >&2 "Unable to map commit to changeset: $commit"
+            exit 1
+        }
+        if [ -z "$revset" ]; then
+            revset="$changeset"
+        else
+            revset="$changeset or $revset"
+        fi
+    done
+
+    # Get all affected changesets by adding the descendants of listed
+    # changesets, too.
+    changesets=$(hg_ log  -r "descendants($revset) or $revset" --template '{node} ')
+
+    echo "--------------------"
+    for changeset in $changesets; do
+        git log --oneline -n 1 $(map_hg_changeset $changeset)
+    done
+    echo "--------------------"
+    read -p "Really remove these commits from hg? [yN] " answer
+    [ "$answer" != "y" -a "$answer" != "Y" ] && return
+
+    # Strip from hg
+    echo "Stripping..."
+    hg_ strip $changesets >/dev/null
+
+    # Remove from git-mapfile
+    for changeset in $changesets; do
+        echo "/ $changeset\$/ d"
+    done | sed -i -f - $HG_GIT_MAPFILE
+}
+
 hg_map_commit() {
     map_git_commit $(git rev-parse "$1")
 }
@@ -213,6 +256,7 @@ case "$cmd" in
     outgoing)        hg_outgoing "$@" ;;
     push)            hg_push "$@" ;;
     pushonly)        hg_pushonly "$@" ;;
+    strip)           hg_strip "$@" ;;
     map-commit)      hg_map_commit "$@" ;;
     map-changeset)   hg_map_changeset "$@" ;;
     convert-diff)    hg_convert_diff "$@" ;;
