@@ -60,12 +60,19 @@ git2hg() {
     delete_bookmarks
 }
 
+do_map() {
+    all=$(grep "$1" $HG_GIT_MAPFILE | cut -d' ' -f$2)
+    [ -z "$all" ] && return
+    first=$(echo $all | head -n 1)
+    [ "$all" = "$first" ] && echo $first
+}
+
 map_git_commit() {
-    grep "^$1" $HG_GIT_MAPFILE | cut -d' ' -f2
+    do_map "^$1" 2
 }
 
 map_hg_changeset() {
-    grep " $1" $HG_GIT_MAPFILE | cut -d' ' -f1
+    do_map " $1" 1
 }
 
 ### COMMANDS ###
