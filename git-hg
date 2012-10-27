@@ -77,7 +77,14 @@ map_hg_changeset() {
 
 ### COMMANDS ###
 
-# Writes the required configuration to ~/.hgrc
+hg_configure_help() {
+    cat <<EOF
+Usage: git hg configure
+
+If ~/.hgrc doesn't exist, writes a suitable default configuration.
+EOF
+}
+
 hg_configure() {
     [ -f $HOME/.hgrc ] && { echo "$HOME/.hgrc already exists!"; exit 1; }
     cat >$HOME/.hgrc <<EOF
@@ -89,6 +96,23 @@ EOF
 
 # Clones a mercurial repository, optionally cloning a git mirror for
 # less time-consuming setup phase
+hg_clone_help() {
+    cat <<EOF
+Usage: git hg clone REMOTE [[GITMIRROR MAPFILE] TARGET]
+
+Clones the REMOTE hg repository and imports it to a git repository.
+
+If TARGET is given, the git repository is created in that directory.
+Otherwise, the target directory is the last path component of REMOTE.
+
+If GITMIRROR and MAPFILE are given, they should be the remote
+locations of an existing git mirror of REMOTE and its compressed
+git-mapfile (gz or bz2). GITMIRROR is cloned and MAPFILE is downloaded
+(using wget) before the hg repostiroy is imported to git. This saves
+lots of time for big repositories.
+EOF
+}
+
 hg_clone() {
     local hgremote gitmirror mapfile target
     check_hg
@@ -141,35 +165,77 @@ hg_clone() {
     echo "Done"
 }
 
-# Fetch changes from remote hg repository
+hg_fetch_help() {
+    cat <<EOF
+Usage: git hg fetch
+
+Pull changes from the remote hg repository, and imports them to git.
+EOF
+}
+
 hg_fetch() {
     check_hg
     hg_ pull && hg2git && $GIT fetch $HG_REMOTE
 }
 
-# Export git changes and show outgoing changes
+hg_outgoing_help() {
+    cat <<EOF
+Usage: git hg outgoing
+
+Export git commits to hg, and show a summary of changes compared to
+the remote hg repository.
+EOF
+}
+
 hg_outgoing() {
     check_hg
     git2hg
     hg_ outgoing
 }
 
-# Export git changes and push to remote hg repository
+hg_push_help() {
+    cat <<EOF
+Usage: git hg push
+
+Export git commits to hg, and push the changes to the remote hg
+repository.
+EOF
+}
+
 hg_push() {
     check_hg
     git2hg
     hg_ push
 }
 
-# Push to remote hg repository without exporting first (useful after
-# outgoing, for example)
+hg_pushonly_help() {
+    cat <<EOF
+Usage: git hg pushonly
+
+Push changes to the remote hg repository without exporting git commits
+to hg first. Useful after git hg outgoing, because exporting git
+commits is quite slow, even if there's nothing to export.
+EOF
+}
+
 hg_pushonly() {
     check_hg
     hg_ push
 }
 
-# Strip the given commits and their descendants from the hg repo and
-# also remove them from the git-mapfile.
+hg_strip_help() {
+    cat <<EOF
+Usage: git hg strip COMMIT [COMMIT...]
+
+Strip the given git commits and their descendants from the hg
+repository.
+
+This is useful if you have already exported some unwanted changes to
+hg, and want to undo them, for example after git hg outgoing but
+before git hg push(only).
+EOF
+}
+
 hg_strip() {
     local commit revset changeset changesets answer
     check_hg
@@ -211,12 +277,38 @@ hg_strip() {
     done | sed -i -f - $HG_GIT_MAPFILE
 }
 
+hg_map_commit_help() {
+    cat <<EOF
+Usage: git hg map-commit COMMIT
+
+Given a git commit ID, output the corresponhg hg changeset ID.
+EOF
+}
+
 hg_map_commit() {
     map_git_commit $(git rev-parse "$1")
 }
 
+hg_map_changeset_help() {
+    cat <<EOF
+Usage: git hg map-changeset CHANGESET
+
+Given a hg changeset ID, output the corresponhg git commit ID.
+EOF
+}
+
 hg_map_changeset() {
     map_hg_changeset "$1"
+}
+
+hg_convert_diff_help() {
+    cat <<EOF
+Usage: git hg convert-diff
+
+Reads a git-style diff from stdin and converts it to a hg-style diff.
+Removes the git extended header lines, and converts the git commit IDs
+to mercurial changeset IDs.
+EOF
 }
 
 hg_convert_diff() {
@@ -227,6 +319,14 @@ hg_convert_diff() {
     sed -r \
         -e "s:^diff --git a/(.+?) b/.+\$:diff -r $changeset \\1:" \
         -e '/^index [0-9a-f]+\.\.[0-9a-f]+ [0-9]+$/d'
+}
+
+hg_hg_help() {
+    cat <<EOF
+Usage: git hg hg [ARGS...]
+
+Run a raw hg command.
+EOF
 }
 
 hg_hg() {
@@ -242,29 +342,69 @@ usage() {
     exit 2
 }
 
-help() {
-    echo "Usage: git hg COMMAND [ARGS...]"
-    echo ""
-    echo "(TODO)"
-    exit
+help_help() {
+    cat <<EOF
+Usage: git hg help COMMAND
+
+Print help for COMMAND.
+EOF
 }
 
-cmd=$1
-[ -z "$cmd" ] && usage
+help() {
+    local fn
+
+    [ -z "$1" ] && {
+        cat >&2 <<EOF
+Usage: git hg COMMAND [ARGS...]
+
+Available commands:
+  clone
+  configure
+  convert-diff
+  fetch
+  hg
+  map-changeset
+  map-commit
+  outgoing
+  push
+  pushonly
+  strip
+
+Invoke "git hg help COMMAND" for command help.
+
+EOF
+        exit 2
+    }
+
+    fn=$(command_fn "$1")
+    [ -z "$fn" ] && {
+        echo >&2 "No such command: $1"
+        exit 2
+    }
+
+    ${fn}_help
+    echo
+}
+
+command_fn() {
+    case "$1" in
+        help|-h|--help)  echo help ;;
+        configure)       echo hg_configure ;;
+        clone)           echo hg_clone ;;
+        fetch)           echo hg_fetch ;;
+        outgoing)        echo hg_outgoing ;;
+        push)            echo hg_push ;;
+        pushonly)        echo hg_pushonly ;;
+        strip)           echo hg_strip ;;
+        map-commit)      echo hg_map_commit ;;
+        map-changeset)   echo hg_map_changeset ;;
+        convert-diff)    echo hg_convert_diff ;;
+        hg)              echo hg_hg ;;
+    esac
+}
+
+fn=$(command_fn "$1")
+[ -z "$fn" ] && usage
 shift
 
-case "$cmd" in
-    help|-h|--help)  help "$@" ;;
-    configure)       hg_configure "$@" ;;
-    clone)           hg_clone "$@" ;;
-    fetch)           hg_fetch "$@" ;;
-    outgoing)        hg_outgoing "$@" ;;
-    push)            hg_push "$@" ;;
-    pushonly)        hg_pushonly "$@" ;;
-    strip)           hg_strip "$@" ;;
-    map-commit)      hg_map_commit "$@" ;;
-    map-changeset)   hg_map_changeset "$@" ;;
-    convert-diff)    hg_convert_diff "$@" ;;
-    hg)              hg_hg "$@" ;;
-    *)               usage ;;
-esac
+$fn "$@"
