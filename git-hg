@@ -159,7 +159,7 @@ hg_clone() {
     echo "Populating the working git repository..."
     $GIT remote add $HG_REMOTE .git/hg/.hg/git
     $GIT fetch $HG_REMOTE
-    $GIT branch --set-upstream-to hg/master
+    $GIT branch --track master hg/master
     $GIT reset --hard hg/master
 
     echo "Done"
